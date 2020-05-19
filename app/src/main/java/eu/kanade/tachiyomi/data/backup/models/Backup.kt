@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.data.backup.models
 
+import eu.kanade.tachiyomi.data.preference.PreferenceKeys
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -17,9 +18,17 @@ object Backup {
     const val EXTENSIONS = "extensions"
     const val HISTORY = "history"
     const val VERSION = "version"
+    const val PREFERENCES = "preferences"
 
     fun getDefaultFilename(): String {
         val date = SimpleDateFormat("yyyy-MM-dd_HH-mm", Locale.getDefault()).format(Date())
         return "tachiyomi_$date.json"
+    }
+
+    private val exclude =
+        setOf(PreferenceKeys.backupDirectory, PreferenceKeys.downloadsDirectory)
+
+    fun isBackupablePreference(key: String): Boolean {
+        return !exclude.contains(key)
     }
 }

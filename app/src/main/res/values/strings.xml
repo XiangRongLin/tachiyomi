@@ -9,6 +9,7 @@
     <string name="chapters">Chapters</string>
     <string name="track">Tracking</string>
     <string name="history">History</string>
+    <string name="settings">Settings</string>
 
     <!-- Activities and fragments labels (toolbar title) -->
     <string name="label_more">More</string>

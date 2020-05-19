@@ -10,7 +10,9 @@ import android.os.Bundle
 import android.view.View
 import androidx.preference.PreferenceScreen
 import com.afollestad.materialdialogs.MaterialDialog
+import com.afollestad.materialdialogs.list.checkItem
 import com.afollestad.materialdialogs.list.listItemsMultiChoice
+import com.afollestad.materialdialogs.list.uncheckItems
 import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.backup.BackupCreateService
@@ -210,31 +212,78 @@ class SettingsBackupController : SettingsController() {
             val activity = activity!!
             val options = arrayOf(
                 R.string.manga, R.string.categories, R.string.chapters,
-                R.string.track, R.string.history
+                R.string.track, R.string.history, R.string.settings
             )
                 .map { activity.getString(it) }
 
+            var flags = 0
+            var previousPositions = intArrayOf(0, 1, 2, 3, 4, 5)
             return MaterialDialog(activity)
                 .title(R.string.pref_create_backup)
                 .message(R.string.backup_choice)
                 .listItemsMultiChoice(
                     items = options,
-                    disabledIndices = intArrayOf(0),
-                    initialSelection = intArrayOf(0, 1, 2, 3, 4)
-                ) { _, positions, _ ->
-                    var flags = 0
-                    for (i in 1 until positions.size) {
-                        when (positions[i]) {
-                            1 -> flags = flags or BackupCreateService.BACKUP_CATEGORY
-                            2 -> flags = flags or BackupCreateService.BACKUP_CHAPTER
-                            3 -> flags = flags or BackupCreateService.BACKUP_TRACK
-                            4 -> flags = flags or BackupCreateService.BACKUP_HISTORY
+//                    disabledIndices = intArrayOf(0),
+                    initialSelection = previousPositions,
+                    waitForPositiveButton = false
+                ) { dialog, positions, items ->
+                    var newFlags = 0
+                    var mangaSubCategory = false
+                    var manga = positions.contains(0)
+                    for (element in positions) {
+                        val allowMangaSubCategories = !(manga && previousPositions.contains(0))
+                        when (element) {
+                            0 -> {
+                                newFlags = newFlags or BackupCreateService.BACKUP_MANGA
+                                manga = true
+                            }
+                            1 -> {
+                                if (allowMangaSubCategories) {
+                                    newFlags = newFlags or BackupCreateService.BACKUP_CATEGORY
+                                    mangaSubCategory = true
+                                }
+                            }
+                            2 -> {
+                                if (allowMangaSubCategories) {
+                                    newFlags = newFlags or BackupCreateService.BACKUP_CHAPTER
+                                    mangaSubCategory = true
+                                }
+                            }
+                            3 -> {
+                                if (allowMangaSubCategories) {
+                                    newFlags = newFlags or BackupCreateService.BACKUP_TRACK
+                                    mangaSubCategory = true
+                                }
+                            }
+                            4 -> {
+                                if (allowMangaSubCategories) {
+                                    newFlags = newFlags or BackupCreateService.BACKUP_HISTORY
+                                    mangaSubCategory = true
+                                }
+                            }
+                            5 -> newFlags = newFlags or BackupCreateService.BACKUP_PREFERENCE
                         }
                     }
-
-                    (targetController as? SettingsBackupController)?.createBackup(flags)
+                    var currentPositions = positions
+                    if (!manga && !previousPositions.contains(0) && mangaSubCategory) {
+                        newFlags = newFlags or BackupCreateService.BACKUP_MANGA
+                        dialog.checkItem(0)
+                        currentPositions += intArrayOf(0)
+                    }
+                    if (!manga && previousPositions.contains(0)) {
+                        val indices = intArrayOf(1, 2, 3, 4)
+                        dialog.uncheckItems(indices)
+                        currentPositions = previousPositions.filter { !indices.contains(it) }.toIntArray()
+                    }
+                    previousPositions = currentPositions
+                    flags = newFlags
                 }
-                .positiveButton(R.string.action_create)
+                .positiveButton(
+                    R.string.action_create,
+                    click = {
+                        (targetController as? SettingsBackupController)?.createBackup(flags)
+                    }
+                )
                 .negativeButton(android.R.string.cancel)
         }
     }
@@ -247,13 +296,30 @@ class SettingsBackupController : SettingsController() {
         )
 
         override fun onCreateDialog(savedViewState: Bundle?): Dialog {
-            return MaterialDialog(activity!!)
+            val activity = activity!!
+            val options = arrayOf(R.string.manga, R.string.settings)
+                .map { activity.getString(it) }
+            var flags = 0
+            return MaterialDialog(activity)
                 .title(R.string.pref_restore_backup)
                 .message(R.string.backup_restore_content)
+                .listItemsMultiChoice(
+                    items = options,
+                    initialSelection = intArrayOf(0, 1),
+                    waitForPositiveButton = false
+                ) { _, positions, _ ->
+                    flags = 0
+                    for (element in positions) {
+                        when (element) {
+                            0 -> flags = flags or BackupCreateService.BACKUP_MANGA
+                            1 -> flags = flags or BackupCreateService.BACKUP_PREFERENCE
+                        }
+                    }
+                }
                 .positiveButton(R.string.action_restore) {
                     val context = applicationContext
                     if (context != null) {
-                        BackupRestoreService.start(context, args.getParcelable(KEY_URI)!!)
+                        BackupRestoreService.start(context, args.getParcelable(KEY_URI)!!, flags)
                     }
                 }
         }

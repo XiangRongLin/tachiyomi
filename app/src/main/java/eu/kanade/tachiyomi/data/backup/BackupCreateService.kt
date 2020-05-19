@@ -18,15 +18,19 @@ class BackupCreateService : Service() {
 
     companion object {
         // Filter options
-        internal const val BACKUP_CATEGORY = 0x1
-        internal const val BACKUP_CATEGORY_MASK = 0x1
-        internal const val BACKUP_CHAPTER = 0x2
-        internal const val BACKUP_CHAPTER_MASK = 0x2
-        internal const val BACKUP_HISTORY = 0x4
-        internal const val BACKUP_HISTORY_MASK = 0x4
-        internal const val BACKUP_TRACK = 0x8
-        internal const val BACKUP_TRACK_MASK = 0x8
-        internal const val BACKUP_ALL = 0xF
+        internal const val BACKUP_MANGA = 0x1
+        internal const val BACKUP_MANGA_MASK = 0x1
+        internal const val BACKUP_CATEGORY = 0x2
+        internal const val BACKUP_CATEGORY_MASK = 0x2
+        internal const val BACKUP_CHAPTER = 0x4
+        internal const val BACKUP_CHAPTER_MASK = 0x4
+        internal const val BACKUP_HISTORY = 0x8
+        internal const val BACKUP_HISTORY_MASK = 0x8
+        internal const val BACKUP_TRACK = 0x10
+        internal const val BACKUP_TRACK_MASK = 0x10
+        internal const val BACKUP_PREFERENCE = 0x20
+        internal const val BACKUP_PREFERENCE_MASK = 0x20
+        internal const val BACKUP_ALL = 0x3F
 
         /**
          * Returns the status of the service.

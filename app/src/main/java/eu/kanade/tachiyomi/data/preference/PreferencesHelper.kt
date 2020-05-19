@@ -50,7 +50,7 @@ private class DateFormatConverter : RxPreference.Adapter<DateFormat> {
 @OptIn(ExperimentalCoroutinesApi::class)
 class PreferencesHelper(val context: Context) {
 
-    private val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+    val prefs = PreferenceManager.getDefaultSharedPreferences(context)
     private val rxPrefs = RxSharedPreferences.create(prefs)
     private val flowPrefs = FlowSharedPreferences(prefs)
 

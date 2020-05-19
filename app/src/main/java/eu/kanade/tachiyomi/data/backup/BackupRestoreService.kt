@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
+import androidx.preference.PreferenceManager
 import com.github.salomonbrys.kotson.fromJson
 import com.google.gson.JsonArray
 import com.google.gson.JsonElement
@@ -19,6 +20,7 @@ import eu.kanade.tachiyomi.data.backup.models.Backup.CHAPTERS
 import eu.kanade.tachiyomi.data.backup.models.Backup.HISTORY
 import eu.kanade.tachiyomi.data.backup.models.Backup.MANGA
 import eu.kanade.tachiyomi.data.backup.models.Backup.MANGAS
+import eu.kanade.tachiyomi.data.backup.models.Backup.PREFERENCES
 import eu.kanade.tachiyomi.data.backup.models.Backup.TRACK
 import eu.kanade.tachiyomi.data.backup.models.Backup.VERSION
 import eu.kanade.tachiyomi.data.backup.models.DHistory
@@ -67,9 +69,10 @@ class BackupRestoreService : Service() {
          * @param context context of application
          * @param uri path of Uri
          */
-        fun start(context: Context, uri: Uri) {
+        fun start(context: Context, uri: Uri, flags: Int) {
             if (!isRunning(context)) {
                 val intent = Intent(context, BackupRestoreService::class.java).apply {
+                    putExtra(BackupConst.FLAGS, flags)
                     putExtra(BackupConst.EXTRA_URI, uri)
                 }
                 if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
@@ -165,6 +168,7 @@ class BackupRestoreService : Service() {
      */
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val uri = intent?.getParcelableExtra<Uri>(BackupConst.EXTRA_URI) ?: return START_NOT_STICKY
+        val backupFlags = intent.getIntExtra(BackupConst.FLAGS, 0)
 
         // Cancel any previous job if needed.
         job?.cancel()
@@ -177,7 +181,7 @@ class BackupRestoreService : Service() {
             stopSelf(startId)
         }
         job = GlobalScope.launch(handler) {
-            restoreBackup(uri)
+            restoreBackup(uri, backupFlags)
         }
         job?.invokeOnCompletion {
             stopSelf(startId)
@@ -191,7 +195,7 @@ class BackupRestoreService : Service() {
      *
      * @param uri backup file to restore
      */
-    private fun restoreBackup(uri: Uri) {
+    private fun restoreBackup(uri: Uri, flags: Int) {
         val startTime = System.currentTimeMillis()
 
         val reader = JsonReader(contentResolver.openInputStream(uri)!!.bufferedReader())
@@ -203,6 +207,28 @@ class BackupRestoreService : Service() {
         // Initialize manager
         backupManager = BackupManager(this, version)
 
+        if (flags and BackupCreateService.BACKUP_MANGA_MASK == BackupCreateService.BACKUP_MANGA) {
+            restoreMangaAndCo(json)
+        }
+        if (flags and BackupCreateService.BACKUP_PREFERENCE == BackupCreateService.BACKUP_PREFERENCE) {
+            restorePreferences(json)
+        }
+
+        val endTime = System.currentTimeMillis()
+        val time = endTime - startTime
+
+        val logFile = writeErrorLog()
+
+        notifier.showRestoreComplete(time, errors.size, logFile.parent, logFile.name)
+    }
+
+    private fun restorePreferences(json: JsonObject) {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        val prefJson = json.get(PREFERENCES)
+        Timber.d(prefJson.asString)
+    }
+
+    private fun restoreMangaAndCo(json: JsonObject) {
         val mangasJson = json.get(MANGAS).asJsonArray
 
         restoreAmount = mangasJson.size() + 1 // +1 for categories
@@ -216,13 +242,6 @@ class BackupRestoreService : Service() {
         mangasJson.forEach {
             restoreManga(it.asJsonObject)
         }
-
-        val endTime = System.currentTimeMillis()
-        val time = endTime - startTime
-
-        val logFile = writeErrorLog()
-
-        notifier.showRestoreComplete(time, errors.size, logFile.parent, logFile.name)
     }
 
     private fun restoreCategories(categoriesJson: JsonElement) {

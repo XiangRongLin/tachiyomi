@@ -18,6 +18,8 @@ import eu.kanade.tachiyomi.data.backup.BackupCreateService.Companion.BACKUP_CHAP
 import eu.kanade.tachiyomi.data.backup.BackupCreateService.Companion.BACKUP_CHAPTER_MASK
 import eu.kanade.tachiyomi.data.backup.BackupCreateService.Companion.BACKUP_HISTORY
 import eu.kanade.tachiyomi.data.backup.BackupCreateService.Companion.BACKUP_HISTORY_MASK
+import eu.kanade.tachiyomi.data.backup.BackupCreateService.Companion.BACKUP_PREFERENCE
+import eu.kanade.tachiyomi.data.backup.BackupCreateService.Companion.BACKUP_PREFERENCE_MASK
 import eu.kanade.tachiyomi.data.backup.BackupCreateService.Companion.BACKUP_TRACK
 import eu.kanade.tachiyomi.data.backup.BackupCreateService.Companion.BACKUP_TRACK_MASK
 import eu.kanade.tachiyomi.data.backup.models.Backup
@@ -27,8 +29,10 @@ import eu.kanade.tachiyomi.data.backup.models.Backup.CURRENT_VERSION
 import eu.kanade.tachiyomi.data.backup.models.Backup.EXTENSIONS
 import eu.kanade.tachiyomi.data.backup.models.Backup.HISTORY
 import eu.kanade.tachiyomi.data.backup.models.Backup.MANGA
+import eu.kanade.tachiyomi.data.backup.models.Backup.PREFERENCES
 import eu.kanade.tachiyomi.data.backup.models.Backup.TRACK
 import eu.kanade.tachiyomi.data.backup.models.DHistory
+import eu.kanade.tachiyomi.data.backup.models.Preference
 import eu.kanade.tachiyomi.data.backup.serializer.CategoryTypeAdapter
 import eu.kanade.tachiyomi.data.backup.serializer.ChapterTypeAdapter
 import eu.kanade.tachiyomi.data.backup.serializer.HistoryTypeAdapter
@@ -139,6 +143,10 @@ class BackupManager(val context: Context, version: Int = CURRENT_VERSION) {
             // Backup categories
             if ((flags and BACKUP_CATEGORY_MASK) == BACKUP_CATEGORY) {
                 backupCategories(categoryEntries)
+            }
+
+            if ((flags and BACKUP_PREFERENCE_MASK) == BACKUP_PREFERENCE) {
+                root[PREFERENCES] = backupPreferences()
             }
 
             // Backup extension ID/name mapping
@@ -260,6 +268,17 @@ class BackupManager(val context: Context, version: Int = CURRENT_VERSION) {
         }
 
         return entry
+    }
+
+    internal fun backupPreferences(): JsonElement {
+        val all = preferences.prefs.all
+        val filter = all
+            .filter { entry -> Backup.isBackupablePreference(entry.key) }
+        val map = filter
+            .map { entry -> Preference(entry.key, entry.value, entry.value?.javaClass) }
+        val preferencesData = map
+        val toJsonTree = parser.toJsonTree(preferencesData)
+        return toJsonTree
     }
 
     fun restoreMangaNoFetch(manga: Manga, dbManga: Manga) {
